@@ -1,0 +1,21 @@
+source "https://rubygems.org"
+
+ruby "3.3.0"
+
+gem "rails", "~> 7.1"
+gem "sqlite3", "~> 1.4"
+gem "puma", "~> 6.0"
+gem "rack-cors"
+gem "faraday"
+gem "faraday-retry"
+gem "dotenv-rails"
+gem "jbuilder"
+gem "bootsnap", require: false
+gem "matrix"          # required by prawn on Ruby 3.1+
+gem "prawn"
+gem "prawn-table"
+
+group :development, :test do
+  gem "debug"
+  gem "rspec-rails"
+end

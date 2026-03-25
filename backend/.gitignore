@@ -1,0 +1,28 @@
+# Ruby / Bundler
+/.bundle
+/vendor/bundle
+/tmp
+/log
+*.log
+
+# Rails
+/db/*.sqlite3
+/db/*.sqlite3-shm
+/db/*.sqlite3-wal
+/storage
+/public/assets
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Credentials (use encrypted credentials instead)
+/config/master.key
+/config/credentials/*.key
+
+# Bootsnap
+/tmp/cache/bootsnap*
+
+# OS
+.DS_Store
