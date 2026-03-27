@@ -73,12 +73,25 @@ export default function InvestigationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Initial fetch
   useEffect(() => {
     fetchInvestigation(Number(id))
       .then(setInv)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Poll every 3 s while pipeline is running
+  useEffect(() => {
+    if (!inv) return;
+    if (!["pending", "running", "narrative_approved"].includes(inv.status)) return;
+    const timer = setInterval(() => {
+      fetchInvestigation(Number(id))
+        .then(setInv)
+        .catch(console.error);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [id, inv?.status]);
 
   if (loading) return (
     <div className="card p-12 text-center text-slate-400">
@@ -106,6 +119,11 @@ export default function InvestigationPage() {
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className={`badge ${statusColor(inv.status)} text-xs`}>{statusLabel(inv.status)}</span>
             <span className="text-sm text-slate-400">Investigation #{inv.id} · {inv.alert_id}</span>
+            {inv.ai_provider === "gemini" ? (
+              <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2 py-0.5">✨ Gemini Flash</span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs bg-orange-50 text-orange-700 border border-orange-200 rounded-full px-2 py-0.5">🤖 Claude</span>
+            )}
             {inv.regeneration_count > 0 && (
               <span className="badge bg-amber-100 text-amber-700 border-amber-200 text-xs">
                 Regenerated ×{inv.regeneration_count}
@@ -177,10 +195,58 @@ export default function InvestigationPage() {
         </div>
       </div>
 
+      {/* Live progress banner while pipeline is running */}
+      {(inv.status === "pending" || inv.status === "running") && (
+        <div className="card p-5 border-blue-200 bg-blue-50 mb-6">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
+            <p className="font-semibold text-blue-900">
+              {inv.ai_provider === "gemini" ? "✨ Gemini Flash" : "🤖 Claude"} is analyzing this alert…
+            </p>
+          </div>
+          <div className="space-y-1.5 text-sm">
+            {[
+              { key: "evidence",         label: "Evidence Collection",  done: !!inv.evidence,         ai: false },
+              { key: "pattern_analysis", label: "Pattern Analysis",     done: !!inv.pattern_analysis, ai: false },
+              { key: "red_flag_mapping", label: "Red Flag Mapping",     done: !!inv.red_flag_mapping, ai: false },
+              { key: "narrative",        label: "Narrative Generation", done: !!inv.narrative,        ai: true  },
+              { key: "qa_result",        label: "QA Validation",        done: !!inv.qa_result,        ai: false },
+            ].map(({ key, label, done, ai }) => (
+              <div key={key} className="flex items-center gap-2">
+                {done ? (
+                  <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                ) : (
+                  <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                )}
+                <span className={done ? "text-green-700 font-medium" : "text-blue-700"}>{label}</span>
+                {ai && <span className="text-xs bg-orange-100 text-orange-700 border border-orange-200 rounded-full px-1.5 py-0.5">real AI</span>}
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-blue-500 mt-3">
+            Smart AI mode: only Narrative uses a real API call (1 credit). This page refreshes every 3 seconds.
+          </p>
+        </div>
+      )}
+
       {inv.status === "failed" && (
         <div className="card p-4 border-red-200 bg-red-50 text-red-700 text-sm mb-6">
-          <p className="font-semibold">Investigation failed</p>
-          <p className="mt-1">{inv.error_message}</p>
+          <p className="font-semibold mb-1">Investigation failed</p>
+          <p className="mt-1 font-mono text-xs bg-red-100 rounded p-2">{inv.error_message}</p>
+          {inv.error_message?.includes("429") || inv.error_message?.includes("rate limit") ? (
+            <div className="mt-3 pt-3 border-t border-red-200">
+              <p className="font-semibold text-red-800 mb-2">Rate limit hit — what to do:</p>
+              <ul className="space-y-1 text-red-700 text-xs list-disc ml-4">
+                <li>Wait 60 seconds, then go back and <strong>retry with Claude</strong> instead of Gemini.</li>
+                <li>Or set <code className="bg-red-100 px-1 rounded">MOCK_AI=true</code> in <code className="bg-red-100 px-1 rounded">.env</code> to bypass the API entirely.</li>
+                <li>Gemini free tier: 15 req/min, 1M tokens/day. Each SAR narrative is ~1,000 tokens.</li>
+              </ul>
+              <Link href={`/alerts/${inv.alert_id}`}
+                className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 bg-red-700 text-white text-xs rounded-lg hover:bg-red-800">
+                <ArrowLeft className="w-3 h-3" /> Go back &amp; retry with Claude
+              </Link>
+            </div>
+          ) : null}
         </div>
       )}
       {inv.status === "closed" && (

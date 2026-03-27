@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { fetchAlerts, formatCurrency, severityColor } from "@/lib/api";
 import type { AlertSummary } from "@/types";
-import { AlertTriangle, ArrowRight, Shield, TrendingUp, TrendingDown } from "lucide-react";
+import { AlertTriangle, ArrowRight, Shield, DollarSign } from "lucide-react";
 import Link from "next/link";
 
 export default function AlertDashboard() {
@@ -18,10 +18,13 @@ export default function AlertDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
+  const severityUpper = (s: string) =>
+    s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+
   const stats = {
-    total: alerts.length,
-    critical: alerts.filter((a) => a.severity === "Critical").length,
-    high: alerts.filter((a) => a.severity === "High").length,
+    total:    alerts.length,
+    critical: alerts.filter((a) => a.severity === "CRITICAL").length,
+    high:     alerts.filter((a) => a.severity === "HIGH").length,
   };
 
   return (
@@ -90,40 +93,39 @@ export default function AlertDashboard() {
               className="flex items-center gap-4 p-5 hover:bg-slate-50 transition-colors group"
             >
               {/* Severity Badge */}
-              <div className={`badge ${severityColor(alert.severity)} shrink-0`}>
-                {alert.severity}
+              <div className={`badge ${severityColor(severityUpper(alert.severity))} shrink-0`}>
+                {severityUpper(alert.severity)}
               </div>
 
               {/* Alert Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2">
-                  <span className="font-semibold text-slate-900 truncate">{alert.customer_name}</span>
+                  <span className="font-semibold text-slate-900 truncate">{alert.customer.name}</span>
                   <span className="text-xs text-slate-400 shrink-0">{alert.alert_id}</span>
                 </div>
                 <p className="text-sm text-slate-500 mt-0.5">{alert.alert_type}</p>
+                {alert.description && (
+                  <p className="text-xs text-slate-400 mt-0.5 truncate">{alert.description}</p>
+                )}
               </div>
 
-              {/* Transaction Amounts */}
+              {/* Transaction Amount */}
               <div className="hidden sm:flex gap-6 text-sm shrink-0">
                 <div className="text-right">
-                  <div className="flex items-center gap-1 text-emerald-600 justify-end">
-                    <TrendingUp className="w-3.5 h-3.5" />
-                    <span className="font-medium">{formatCurrency(alert.total_inbound)}</span>
+                  <div className="flex items-center gap-1 text-slate-700 justify-end">
+                    <DollarSign className="w-3.5 h-3.5" />
+                    <span className="font-medium">{formatCurrency(alert.total_amount)}</span>
                   </div>
-                  <p className="text-xs text-slate-400">Inbound</p>
-                </div>
-                <div className="text-right">
-                  <div className="flex items-center gap-1 text-rose-600 justify-end">
-                    <TrendingDown className="w-3.5 h-3.5" />
-                    <span className="font-medium">{formatCurrency(alert.total_outbound)}</span>
-                  </div>
-                  <p className="text-xs text-slate-400">Outbound</p>
+                  <p className="text-xs text-slate-400">{alert.transaction_count} txns</p>
                 </div>
               </div>
 
-              {/* Date */}
-              <div className="hidden lg:block text-right text-sm text-slate-400 shrink-0 w-24">
-                {alert.alert_generated_date}
+              {/* Risk Score */}
+              <div className="hidden lg:block text-right text-sm shrink-0 w-24">
+                <p className={`font-semibold ${alert.customer.risk_score >= 80 ? "text-red-600" : alert.customer.risk_score >= 60 ? "text-orange-600" : "text-green-600"}`}>
+                  Risk {alert.customer.risk_score}
+                </p>
+                <p className="text-xs text-slate-400">{new Date(alert.created_at).toLocaleDateString()}</p>
               </div>
 
               <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-colors shrink-0" />

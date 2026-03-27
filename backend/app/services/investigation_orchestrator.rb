@@ -13,41 +13,41 @@
 class InvestigationOrchestrator
   def initialize(investigation)
     @investigation = investigation
+    @provider = investigation.ai_provider.presence || "claude"
   end
 
   # ── Phase 1 ──────────────────────────────────────────────────────────────
   def run
     @investigation.running!
 
-    # Step 1 – Fetch alert (Dummy API)
-    alert_data = DummyAlertService.find(@investigation.alert_id)
-    raise "Alert #{@investigation.alert_id} not found" unless alert_data
-    @investigation.update!(alert_data: alert_data.to_json)
+    # Step 1 – Load alert data (already stored on the investigation by the controller)
+    alert_data = @investigation.alert_data_parsed
+    raise "Alert data missing for #{@investigation.alert_id}" unless alert_data
 
     # Step 2 – Evidence Collection Agent
-    evidence = EvidenceCollectionAgent.new.run(alert_data)
+    evidence = EvidenceCollectionAgent.new(provider: @provider).run(alert_data)
     @investigation.update!(evidence: evidence.to_json)
 
     # Step 3 – Pattern Analysis Agent
-    pattern_analysis = PatternAnalysisAgent.new.run(evidence)
+    pattern_analysis = PatternAnalysisAgent.new(provider: @provider).run(evidence)
     @investigation.update!(pattern_analysis: pattern_analysis.to_json)
 
     # Step 4 – Red Flag Mapping Agent
-    red_flag_mapping = RedFlagMappingAgent.new.run(
+    red_flag_mapping = RedFlagMappingAgent.new(provider: @provider).run(
       evidence: evidence,
       pattern_analysis: pattern_analysis
     )
     @investigation.update!(red_flag_mapping: red_flag_mapping.to_json)
 
     # Step 5 – Narrative Generation Agent
-    narrative = NarrativeGenerationAgent.new.run(
+    narrative = NarrativeGenerationAgent.new(provider: @provider).run(
       evidence: evidence,
       pattern_analysis: pattern_analysis,
       red_flag_mapping: red_flag_mapping
     )
 
     # Step 6 – QA Validation Agent
-    qa_result = QaValidationAgent.new.run(
+    qa_result = QaValidationAgent.new(provider: @provider).run(
       evidence: evidence,
       pattern_analysis: pattern_analysis,
       narrative: narrative
@@ -66,9 +66,8 @@ class InvestigationOrchestrator
   end
 
   # ── Regenerate narrative (Phase 1b) ──────────────────────────────────────
+  # Note: caller (controller) already called running! and increment_regeneration!
   def regenerate_narrative
-    @investigation.running!
-    @investigation.increment_regeneration!
 
     evidence         = @investigation.evidence_parsed
     pattern_analysis = @investigation.pattern_analysis_parsed
@@ -77,13 +76,13 @@ class InvestigationOrchestrator
     raise "Missing evidence – run Phase 1 first" unless evidence
 
     # Re-run only Narrative + QA agents
-    narrative = NarrativeGenerationAgent.new.run(
+    narrative = NarrativeGenerationAgent.new(provider: @provider).run(
       evidence: evidence,
       pattern_analysis: pattern_analysis,
       red_flag_mapping: red_flag_mapping
     )
 
-    qa_result = QaValidationAgent.new.run(
+    qa_result = QaValidationAgent.new(provider: @provider).run(
       evidence: evidence,
       pattern_analysis: pattern_analysis,
       narrative: narrative

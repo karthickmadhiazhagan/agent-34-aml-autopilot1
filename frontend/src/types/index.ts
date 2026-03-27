@@ -1,53 +1,88 @@
-// ─── AML Alert Types ──────────────────────────────────────────────────────────
+// ─── AML Alert Types (DB-backed) ──────────────────────────────────────────────
 
-export interface CustomerProfile {
-  customer_id: string;
-  customer_name: string;
-  business_type: string;
-  account_open_date: string;
-  expected_monthly_turnover: number;
-  risk_rating: "Low" | "Medium" | "High" | "Critical";
+export interface CustomerInfo {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  nationality: string;
+  country_of_residence: string;
+  occupation: string;
+  date_of_birth: string | null;
+  risk_score: number;
+  risk_label: string;
+  kyc_status: string;   // verified | pending | failed | enhanced_due_diligence
+  is_pep: boolean;
+}
+
+export interface AccountInfo {
+  account_number: string;
+  type: string;         // checking | savings | business | offshore
+  balance: number;
+  currency: string;
+  status: string;       // active | frozen | closed | dormant
+  branch: string;
+  opened_at: string | null;
 }
 
 export interface Transaction {
-  txn_id: string;
-  date: string;
+  id: string;
   type: string;
   amount: number;
-  originator?: string;
-  beneficiary?: string;
-  country?: string;
-  branch?: string;
+  currency: string;
+  from_account: string | null;
+  to_account: string | null;
+  description: string;
+  date: string;
+  location: string | null;
+  counterparty_name: string | null;
+  counterparty_country: string | null;
+  status: string;
+}
+
+export interface AlertMetadata {
+  total_amount: number;
+  transaction_count: number;
+  time_period: string;
+  rule_triggered: string;
+  risk_indicators: string[];
+  [key: string]: unknown;
 }
 
 export interface AlertSummary {
   alert_id: string;
   alert_type: string;
-  alert_generated_date: string;
-  severity: "Low" | "Medium" | "High" | "Critical";
-  customer_name: string;
-  risk_rating: string;
-  total_inbound: number;
-  total_outbound: number;
+  severity: string;
+  status: string;
+  customer: { id: string; name: string; risk_score: number };
+  account: { account_number: string; type: string };
+  description: string;
+  total_amount: number;
+  transaction_count: number;
+  created_at: string;
 }
 
-export interface Alert extends AlertSummary {
-  customer_profile: CustomerProfile;
-  kyc: {
-    id_verified: boolean;
-    beneficial_owner_disclosed: boolean;
-    last_kyc_review: string;
-    pep_status: boolean;
-    sanctions_match: boolean;
-  };
+export interface Alert {
+  alert_id: string;
+  alert_type: string;
+  severity: string;
+  status: string;
+  customer: CustomerInfo;
+  account: AccountInfo;
   transactions: Transaction[];
-  prior_sars: Array<{ sar_id: string; filed_date: string; reason: string }>;
+  flagged_transactions: Transaction[];
+  metadata: AlertMetadata;
 }
 
 // ─── Agent Output Types ───────────────────────────────────────────────────────
 
 export interface Evidence {
-  customer_profile: CustomerProfile;
+  customer_profile: {
+    customer_id: string;
+    customer_name: string;
+    business_type: string;
+    risk_rating: string;
+  };
   kyc_summary: {
     verified: boolean;
     pep: boolean;
@@ -165,16 +200,25 @@ export interface SarOutput {
 
 // ─── Investigation Types ──────────────────────────────────────────────────────
 
-export type InvestigationStatus = "pending" | "running" | "completed" | "failed";
+export type InvestigationStatus =
+  | "pending" | "running"
+  | "narrative_ready" | "narrative_approved"
+  | "sar_ready" | "sar_approved"
+  | "closed" | "failed";
 
 export interface Investigation {
   id: number;
   alert_id: string;
   status: InvestigationStatus;
+  ai_provider: "claude" | "gemini";
   error_message?: string;
-  approved: boolean;
-  approved_by?: string;
-  approved_at?: string;
+  regeneration_count: number;
+  narrative_approved: boolean;
+  narrative_approved_by?: string;
+  narrative_approved_at?: string;
+  sar_approved: boolean;
+  sar_approved_by?: string;
+  sar_approved_at?: string;
   created_at: string;
   updated_at: string;
   alert_data?: Alert;

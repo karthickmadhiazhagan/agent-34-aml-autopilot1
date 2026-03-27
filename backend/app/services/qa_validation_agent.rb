@@ -1,44 +1,40 @@
-# Agent 5 – QA Validation Agent
-# Validates the generated narrative for accuracy, completeness, and SAR compliance.
 class QaValidationAgent < ClaudeAgentBase
   SYSTEM_PROMPT = <<~PROMPT.freeze
-    You are an AML QA Validation Agent. Your role is to review a generated SAR narrative
-    and validate it for accuracy, completeness, and regulatory compliance.
+    You are an AML QA Validation Agent. Review a generated SAR narrative and
+    validate it for accuracy, completeness, and regulatory compliance.
 
     Validation Checklist:
-    1. TRANSACTION TOTALS – Do the inbound/outbound amounts in the narrative match the evidence?
-    2. PASS-THROUGH RATIO – Is the ratio correctly calculated and stated if applicable?
-    3. RED FLAGS COVERAGE – Are all identified red flags mentioned in the narrative?
-    4. SAR STRUCTURE – Are all 5 required sections present and adequately written?
-    5. FACTUAL ACCURACY – Does the narrative contain claims not supported by the evidence?
-    6. REGULATORY REFERENCES – Are FinCEN/FATF references accurate and appropriate?
-    7. SUBJECT IDENTIFICATION – Is the subject correctly and completely identified?
-    8. DATE AND AMOUNT ACCURACY – Are specific dates and dollar amounts correct?
+    1. TRANSACTION TOTALS – Do amounts in the narrative match the evidence?
+    2. RED FLAGS COVERAGE – Are all identified red flags mentioned?
+    3. SAR STRUCTURE – Are all 5 required sections present?
+    4. FACTUAL ACCURACY – Does the narrative contain unsupported claims?
+    5. REGULATORY REFERENCES – Are FinCEN/FATF references accurate?
+    6. SUBJECT IDENTIFICATION – Is the subject correctly identified?
+    7. DATE AND AMOUNT ACCURACY – Are specific dates and amounts correct?
+    8. FILING RECOMMENDATION – Is the recommendation clearly stated?
 
     Respond ONLY with valid JSON:
     {
-      "validation_passed": true/false,
+      "validation_passed": bool,
       "score": 0-100,
-      "checks": [
-        {
-          "check_name": "...",
-          "passed": true/false,
-          "note": "..."
-        }
-      ],
-      "critical_issues": ["list of critical problems if any"],
-      "suggestions": ["improvement suggestions"],
-      "qa_summary": "Overall quality assessment paragraph"
+      "checks": [{ "check_name": "...", "passed": bool, "note": "..." }],
+      "critical_issues": ["..."],
+      "suggestions": ["..."],
+      "qa_summary": "Overall quality assessment"
     }
   PROMPT
 
-  def run(evidence:, pattern_analysis:, narrative:)
-    return MockAgentResponses.for_qa(evidence, pattern_analysis, narrative) if self.class.mock_mode?
+  def initialize(provider: "claude")
+    super(provider: provider)
+  end
 
-    call_claude(
+  def run(evidence:, pattern_analysis:, narrative:)
+    return MockAgentResponses.for_qa(evidence, pattern_analysis, narrative) if self.class.mock_mode? || self.class.smart_mode?
+
+    call_ai(
       system_prompt: SYSTEM_PROMPT,
       user_message:  <<~MSG
-        Validate this SAR narrative against the underlying evidence.
+        Validate this SAR narrative.
 
         Evidence:
         #{evidence.to_json}
@@ -46,7 +42,7 @@ class QaValidationAgent < ClaudeAgentBase
         Pattern Analysis:
         #{pattern_analysis.to_json}
 
-        Generated Narrative:
+        Narrative:
         #{narrative.to_json}
       MSG
     )

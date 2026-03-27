@@ -17,23 +17,47 @@ module Api
         render json: detail(@investigation)
       end
 
-      # POST /api/v1/investigations  { alert_id: "ALERT_1001" }
+      # POST /api/v1/investigations  { alert_id: "AML-2024-001" }
+      # Returns immediately with status "running"; pipeline runs in background thread.
       def create
         alert_id = params[:alert_id]&.upcase
-        raise ActiveRecord::RecordNotFound, "Alert #{alert_id} not found" unless DummyAlertService.find(alert_id)
 
-        investigation = Investigation.create!(alert_id: alert_id)
-        InvestigationOrchestrator.new(investigation).run
-        investigation.reload
+        # Lookup alert
+        alert = Alert.includes(:customer, :account).find_by(alert_id: alert_id)
+        return render json: { error: "Alert '#{alert_id}' not found" }, status: :not_found unless alert
+
+        alert_data  = alert.as_alert_data
+        ai_provider = params[:ai_provider].presence || "claude"
+        investigation = Investigation.create!(
+          alert_id:   alert_id,
+          alert_data: alert_data.to_json,
+          ai_provider: ai_provider,
+          status:     "pending"
+        )
+
+        # Run the 5-agent pipeline in a background thread so the HTTP response
+        # returns immediately. The frontend polls GET /investigations/:id.
+        inv_id = investigation.id
+        Thread.new do
+          ActiveRecord::Base.connection_pool.with_connection do
+            fresh = Investigation.find(inv_id)
+            InvestigationOrchestrator.new(fresh).run
+          rescue => e
+            begin
+              Investigation.find(inv_id).failed!(e.message)
+            rescue
+              nil
+            end
+          end
+        end
+
         render json: detail(investigation), status: :created
       rescue => e
-        investigation&.reload
-        render json: { error: e.message, investigation: investigation ? detail(investigation) : nil },
-               status: :unprocessable_entity
+        render json: { error: e.message }, status: :unprocessable_entity
       end
 
       # POST /api/v1/investigations/:id/approve_narrative
-      # Approves the narrative and auto-generates the SAR.
+      # Approves the narrative and kicks off async SAR generation.
       def approve_narrative
         unless @investigation.status == "narrative_ready"
           return render json: { error: "Narrative is not ready for approval (status: #{@investigation.status})" }, status: :unprocessable_entity
@@ -41,24 +65,53 @@ module Api
 
         @investigation.approve_narrative!(by: params[:approved_by] || "Investigator")
 
-        # Auto-compose SAR immediately after narrative approval
-        InvestigationOrchestrator.new(@investigation).generate_sar
+        # Auto-compose SAR in background thread
+        inv_id = @investigation.id
+        Thread.new do
+          ActiveRecord::Base.connection_pool.with_connection do
+            fresh = Investigation.find(inv_id)
+            InvestigationOrchestrator.new(fresh).generate_sar
+          rescue => e
+            begin
+              Investigation.find(inv_id).failed!(e.message)
+            rescue
+              nil
+            end
+          end
+        end
+
         @investigation.reload
-        render json: { message: "Narrative approved. SAR is ready for review.", investigation: detail(@investigation) }
+        render json: { message: "Narrative approved. SAR is being generated…", investigation: detail(@investigation) }
       rescue => e
         render json: { error: e.message }, status: :unprocessable_entity
       end
 
       # POST /api/v1/investigations/:id/regenerate_narrative
-      # Re-runs the Narrative + QA agents, keeps existing evidence/patterns.
+      # Re-runs the Narrative + QA agents async, keeps existing evidence/patterns.
       def regenerate_narrative
         unless %w[narrative_ready narrative_approved].include?(@investigation.status)
           return render json: { error: "Cannot regenerate from status: #{@investigation.status}" }, status: :unprocessable_entity
         end
 
-        InvestigationOrchestrator.new(@investigation).regenerate_narrative
+        @investigation.running!
+        @investigation.increment_regeneration!
+
+        inv_id = @investigation.id
+        Thread.new do
+          ActiveRecord::Base.connection_pool.with_connection do
+            fresh = Investigation.find(inv_id)
+            InvestigationOrchestrator.new(fresh).regenerate_narrative
+          rescue => e
+            begin
+              Investigation.find(inv_id).failed!(e.message)
+            rescue
+              nil
+            end
+          end
+        end
+
         @investigation.reload
-        render json: { message: "Narrative regenerated (attempt #{@investigation.regeneration_count}).", investigation: detail(@investigation) }
+        render json: { message: "Regenerating narrative (attempt #{@investigation.regeneration_count})…", investigation: detail(@investigation) }
       rescue => e
         render json: { error: e.message }, status: :unprocessable_entity
       end
@@ -132,6 +185,7 @@ module Api
           id:                    inv.id,
           alert_id:              inv.alert_id,
           status:                inv.status,
+          ai_provider:           inv.ai_provider,
           error_message:         inv.error_message,
           regeneration_count:    inv.regeneration_count,
           narrative_approved:    inv.narrative_approved?,

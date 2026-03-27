@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { fetchInvestigation, approveNarrative, regenerateNarrative, closeInvestigation } from "@/lib/api";
 import type { Investigation } from "@/types";
@@ -19,15 +19,38 @@ export default function NarrativeReviewPage() {
   const { id } = useParams<{ id: string }>();
   const router  = useRouter();
   const [inv, setInv] = useState<Investigation | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [approving, setApproving] = useState(false);
+  const [loading, setLoading]       = useState(true);
+  const [approving, setApproving]   = useState(false);
   const [regenerating, setRegenerating] = useState(false);
-  const [closing, setClosing]   = useState(false);
-  const [toast, setToast] = useState<{ msg: string; type: "success"|"error"|"info" } | null>(null);
+  const [closing, setClosing]       = useState(false);
+  const [toast, setToast]           = useState<{ msg: string; type: "success"|"error"|"info" } | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetchInvestigation(Number(id)).then(setInv).finally(() => setLoading(false));
   }, [id]);
+
+  // Poll while regenerating — stop when narrative_ready or failed
+  useEffect(() => {
+    if (!regenerating) {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      return;
+    }
+    pollRef.current = setInterval(async () => {
+      try {
+        const fresh = await fetchInvestigation(Number(id));
+        if (fresh.status === "narrative_ready" || fresh.status === "failed") {
+          setInv(fresh);
+          setRegenerating(false);
+          if (fresh.status === "narrative_ready") showToast("Narrative regenerated successfully!", "success");
+          if (fresh.status === "failed") showToast(`Regeneration failed: ${fresh.error_message}`, "error");
+        } else {
+          setInv(fresh); // update progress
+        }
+      } catch { /* ignore transient errors */ }
+    }, 3000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [regenerating, id]);
 
   function showToast(msg: string, type: "success"|"error"|"info" = "info") {
     setToast({ msg, type });
@@ -51,12 +74,12 @@ export default function NarrativeReviewPage() {
     if (!inv) return;
     setRegenerating(true);
     try {
-      const { investigation, message } = await regenerateNarrative(inv.id);
-      showToast(message, "info");
-      setInv(investigation);
+      const { message } = await regenerateNarrative(inv.id);
+      showToast(message || "Regenerating narrative…", "info");
+      // Don't setRegenerating(false) here — the poll useEffect watches for
+      // narrative_ready / failed and stops polling + clears the flag.
     } catch (e: unknown) {
       showToast((e as Error).message, "error");
-    } finally {
       setRegenerating(false);
     }
   }
@@ -82,9 +105,11 @@ export default function NarrativeReviewPage() {
     </div>
   );
 
-  const narrative = inv?.narrative;
+  const narrative  = inv?.narrative;
   const isApproved = inv?.narrative_approved;
-  const canAct     = inv?.status === "narrative_ready";
+  // Allow actions when ready; keep buttons visible during regeneration so
+  // user can approve immediately once the new narrative arrives.
+  const canAct = inv?.status === "narrative_ready" || regenerating;
 
   return (
     <div className="max-w-4xl">
@@ -156,12 +181,29 @@ export default function NarrativeReviewPage() {
       </div>
 
       {regenerating && (
-        <div className="card p-5 bg-amber-50 border-amber-200 mb-6 flex items-center gap-3">
-          <div className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin shrink-0" />
-          <div>
-            <p className="font-semibold text-amber-800">Regenerating narrative…</p>
-            <p className="text-sm text-amber-600">The AI is rewriting the SAR narrative. This will take a moment.</p>
+        <div className="card p-5 border-amber-200 bg-amber-50 mb-6">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin shrink-0" />
+            <p className="font-semibold text-amber-900">Regenerating narrative — please wait…</p>
           </div>
+          <div className="space-y-1.5 text-sm">
+            {[
+              { label: "Evidence Collection",  done: !!inv?.evidence },
+              { label: "Pattern Analysis",     done: !!inv?.pattern_analysis },
+              { label: "Red Flag Mapping",     done: !!inv?.red_flag_mapping },
+              { label: "Narrative Generation", done: !!inv?.narrative && inv?.status === "narrative_ready", ai: true },
+              { label: "QA Validation",        done: !!inv?.qa_result  && inv?.status === "narrative_ready" },
+            ].map(({ label, done, ai }) => (
+              <div key={label} className="flex items-center gap-2">
+                {done
+                  ? <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                  : <div className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin shrink-0" />}
+                <span className={done ? "text-green-700 font-medium" : "text-amber-700"}>{label}</span>
+                {ai && <span className="text-xs bg-orange-100 text-orange-700 border border-orange-200 rounded-full px-1.5 py-0.5">real AI</span>}
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-amber-500 mt-3">Page polls every 3 seconds automatically.</p>
         </div>
       )}
 

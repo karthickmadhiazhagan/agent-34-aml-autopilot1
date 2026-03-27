@@ -1,16 +1,34 @@
 default: &default
-  adapter: sqlite3
+  adapter: postgresql
+  encoding: unicode
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-  timeout: 5000
+  host:     <%= ENV.fetch("DB_HOST", "localhost") %>
+  # port:     <%= ENV.fetch("DB_PORT", 5432) %>
+  username: <%= ENV.fetch("DB_USERNAME", "postgres") %>
+  password: <%= ENV.fetch("DB_PASSWORD", "") %>
 
 development:
   <<: *default
-  database: db/development.sqlite3
+  database: aml_autopilot_development
 
 test:
   <<: *default
-  database: db/test.sqlite3
+  database: aml_autopilot_test
 
 production:
   <<: *default
-  database: db/production.sqlite3
+  database: aml_autopilot_production
+
+# production:
+#   adapter: postgresql
+#   database: aml_autopilot_production
+#   host: localhost
+#   username: postgres
+#   password: "postgres"
+
+# development:
+#   adapter: postgresql
+#   database: aml_autopilot_development
+#   host: localhost
+#   username: postgres
+#   password: "postgres"

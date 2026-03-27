@@ -32,10 +32,10 @@ export async function fetchInvestigations(): Promise<{ investigations: Investiga
 export async function fetchInvestigation(id: number): Promise<Investigation> {
   return request(`/api/v1/investigations/${id}`);
 }
-export async function startInvestigation(alertId: string): Promise<Investigation> {
+export async function startInvestigation(alertId: string, aiProvider: string = "claude"): Promise<Investigation> {
   return request("/api/v1/investigations", {
     method: "POST",
-    body: JSON.stringify({ alert_id: alertId }),
+    body: JSON.stringify({ alert_id: alertId, ai_provider: aiProvider }),
   });
 }
 

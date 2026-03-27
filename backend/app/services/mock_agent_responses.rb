@@ -2,44 +2,60 @@
 # when MOCK_AI=true. Lets you run the full pipeline without API credits.
 module MockAgentResponses
   def self.for_evidence(alert_data)
-    profile = alert_data[:customer_profile] || {}
-    txns    = alert_data[:transactions] || []
-    countries = txns.map { |t| t[:country] }.compact.uniq
-    high_risk = countries & %w[BVI CYM PAN CYP RU UA MX MU PA]
+    # alert_data is parsed from JSON so all keys are strings
+    customer = alert_data["customer"] || {}
+    account  = alert_data["account"]  || {}
+    txns     = alert_data["transactions"] || []
+    meta     = alert_data["metadata"] || {}
+
+    # Compute inbound / outbound from transaction types
+    inbound  = txns.select { |t| t["type"] == "cash_deposit" || t["type"] == "crypto_conversion" || t["from_account"].nil? }
+    outbound = txns - inbound
+    total_in  = inbound.sum  { |t| t["amount"].to_f }
+    total_out = outbound.sum { |t| t["amount"].to_f }
+
+    # Extract high-risk counterparty countries
+    high_risk_countries = %w[RU IR KP SY CU BVI CYM PAN CYP UA MX MU PA KY HK EE VG]
+    countries = txns.map { |t| t["counterparty_country"] }.compact.uniq
+    high_risk = countries & high_risk_countries
+
+    dates = txns.map { |t| t["date"] }.compact.sort
 
     {
       "customer_profile" => {
-        "customer_id"                => profile[:customer_id],
-        "customer_name"              => profile[:customer_name],
-        "business_type"              => profile[:business_type],
-        "account_open_date"          => profile[:account_open_date],
-        "expected_monthly_turnover"  => profile[:expected_monthly_turnover],
-        "risk_rating"                => profile[:risk_rating]
+        "customer_id"               => customer["id"],
+        "customer_name"             => customer["name"],
+        "business_type"             => customer["occupation"] || "Individual",
+        "account_open_date"         => account["opened_at"] || "N/A",
+        "expected_monthly_turnover" => (account["balance"].to_f / 6).round(2),
+        "risk_rating"               => customer["risk_label"] || "High"
       },
       "kyc_summary" => {
-        "verified"                    => alert_data.dig(:kyc, :id_verified) || true,
-        "pep"                         => alert_data.dig(:kyc, :pep_status) || false,
-        "sanctions"                   => alert_data.dig(:kyc, :sanctions_match) || false,
-        "last_review"                 => alert_data.dig(:kyc, :last_kyc_review) || "2024-01-01",
-        "beneficial_owner_disclosed"  => alert_data.dig(:kyc, :beneficial_owner_disclosed) || true
+        "verified"                   => customer["kyc_status"] == "verified",
+        "pep"                        => customer["is_pep"] || false,
+        "sanctions"                  => false,
+        "last_review"                => "2024-01-01",
+        "beneficial_owner_disclosed" => customer["kyc_status"] != "pending"
       },
       "transaction_summary" => {
-        "total_inbound"          => alert_data[:total_inbound],
-        "total_outbound"         => alert_data[:total_outbound],
-        "transaction_count"      => txns.size,
-        "date_range"             => {
-          "from" => txns.map { |t| t[:date] }.min,
-          "to"   => txns.map { |t| t[:date] }.max
+        "total_inbound"           => total_in.round(2),
+        "total_outbound"          => total_out.round(2),
+        "transaction_count"       => txns.size,
+        "date_range"              => {
+          "from" => dates.first || "N/A",
+          "to"   => dates.last  || "N/A"
         },
         "high_risk_jurisdictions" => high_risk,
-        "transactions"           => txns
+        "transactions"            => txns
       },
-      "prior_sar_history" => (alert_data[:prior_sars] || []),
+      "prior_sar_history" => [],
       "alert_metadata" => {
-        "alert_id"       => alert_data[:alert_id],
-        "alert_type"     => alert_data[:alert_type],
-        "severity"       => alert_data[:severity],
-        "generated_date" => alert_data[:alert_generated_date]
+        "alert_id"       => alert_data["alert_id"],
+        "alert_type"     => alert_data["alert_type"],
+        "severity"       => alert_data["severity"],
+        "generated_date" => Time.current.strftime("%Y-%m-%d"),
+        "rule_triggered" => meta["rule_triggered"],
+        "risk_indicators" => meta["risk_indicators"] || []
       }
     }
   end
