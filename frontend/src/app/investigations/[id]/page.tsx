@@ -97,7 +97,7 @@ export default function InvestigationPage() {
             )}
           </div>
           <h1 className="text-xl font-bold">
-            {inv.alert_data?.customer_profile?.customer_name || inv.alert_id}
+            {inv.alert_data?.customer?.name || inv.alert_id}
           </h1>
           <p className="text-gray-500 text-sm">{inv.alert_data?.alert_type}</p>
         </div>

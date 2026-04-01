@@ -117,7 +117,7 @@ export default function NarrativeReviewPage() {
         <div>
           <h1 className="text-xl font-bold">Narrative Review</h1>
           <p className="text-gray-500 text-sm">
-            {inv?.alert_id} · {inv?.alert_data?.customer_profile?.customer_name}
+            {inv?.alert_id} · {inv?.alert_data?.customer?.name}
             {(inv?.regeneration_count || 0) > 0 && (
               <span className="ml-2 text-gray-400">(Regenerated ×{inv?.regeneration_count})</span>
             )}
