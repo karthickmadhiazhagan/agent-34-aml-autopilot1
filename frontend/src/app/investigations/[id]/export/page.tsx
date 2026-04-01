@@ -24,7 +24,7 @@ export default function SarExportPage() {
     if (!inv) return;
     setExporting(true);
     try {
-      const result = await exportSar(inv.id);
+      const result = inv.sar_output;
       // Download as JSON file
       const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
