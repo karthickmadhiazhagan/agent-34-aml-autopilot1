@@ -29,7 +29,7 @@ class QaValidationAgent < ClaudeAgentBase
   end
 
   def run(evidence:, pattern_analysis:, narrative:)
-    return MockAgentResponses.for_qa(evidence, pattern_analysis, narrative) if self.class.mock_mode? || self.class.smart_mode?
+    return MockAgentResponses.for_qa(evidence, pattern_analysis, narrative) if self.class.mock_mode?
 
     call_ai(
       system_prompt: SYSTEM_PROMPT,

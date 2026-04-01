@@ -12,40 +12,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <div className="min-h-screen flex flex-col">
           {/* Top Navigation */}
-          <header className="bg-slate-900 text-white shadow-lg">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-between h-16">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-sm">
-                    34
-                  </div>
-                  <div>
-                    <span className="font-semibold tracking-tight">AML Case Autopilot</span>
-                    <span className="ml-2 text-xs text-slate-400 hidden sm:inline">
-                      Agent 34 · AI-Powered Investigations
-                    </span>
-                  </div>
-                </div>
-                <nav className="flex items-center gap-6 text-sm">
-                  <a href="/" className="text-slate-300 hover:text-white transition-colors">
-                    Alerts
-                  </a>
-                  <a href="/investigations" className="text-slate-300 hover:text-white transition-colors">
-                    Investigations
-                  </a>
-                </nav>
-              </div>
+          <header className="border-b border-gray-300 bg-white">
+            <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+              <span className="font-bold text-gray-900">AML Case Autopilot</span>
+              <nav className="flex gap-6 text-sm">
+                <a href="/" className="text-blue-600 hover:underline">Alerts</a>
+                <a href="/investigations" className="text-blue-600 hover:underline">Investigations</a>
+              </nav>
             </div>
           </header>
 
           {/* Page Content */}
-          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6">
             {children}
           </main>
-
-          <footer className="border-t border-slate-200 py-4 text-center text-xs text-slate-400">
-            Agent 34 – AML Case Narrative & Evidence Autopilot · FinCEN / FATF Regulatory Framework
-          </footer>
         </div>
       </body>
     </html>

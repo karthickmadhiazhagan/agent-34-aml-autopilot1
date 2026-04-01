@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { fetchAlerts, formatCurrency, severityColor } from "@/lib/api";
 import type { AlertSummary } from "@/types";
-import { AlertTriangle, ArrowRight, Shield, DollarSign } from "lucide-react";
 import Link from "next/link";
 
 export default function AlertDashboard() {
@@ -21,117 +20,60 @@ export default function AlertDashboard() {
   const severityUpper = (s: string) =>
     s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 
-  const stats = {
-    total:    alerts.length,
-    critical: alerts.filter((a) => a.severity === "CRITICAL").length,
-    high:     alerts.filter((a) => a.severity === "HIGH").length,
-  };
-
   return (
     <div>
-      {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">AML Alert Dashboard</h1>
-        <p className="text-slate-500 mt-1">
-          Incoming alerts from the AML monitoring system. Select an alert to begin an AI-assisted investigation.
-        </p>
-      </div>
+      <h1 className="text-xl font-bold mb-1">AML Alert Dashboard</h1>
+      <p className="text-sm text-gray-500 mb-4">
+        {alerts.length} alert(s) loaded. Select an alert to start an AI-assisted investigation.
+      </p>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="card p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-            <Shield className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold">{stats.total}</p>
-            <p className="text-xs text-slate-500">Total Alerts</p>
-          </div>
-        </div>
-        <div className="card p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-red-600">{stats.critical}</p>
-            <p className="text-xs text-slate-500">Critical</p>
-          </div>
-        </div>
-        <div className="card p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-orange-500" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-orange-600">{stats.high}</p>
-            <p className="text-xs text-slate-500">High Priority</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Alert List */}
-      {loading && (
-        <div className="card p-12 text-center text-slate-400">
-          <div className="inline-block w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-3" />
-          <p>Loading alerts from AML monitoring system…</p>
-        </div>
-      )}
+      {loading && <p className="text-gray-500">Loading alerts…</p>}
 
       {error && (
-        <div className="card p-6 border-red-200 bg-red-50 text-red-700">
-          <p className="font-semibold">Failed to load alerts</p>
-          <p className="text-sm mt-1">{error}</p>
-          <p className="text-xs mt-2 text-red-500">Make sure the Rails backend is running on port 3001.</p>
+        <div className="border border-red-400 bg-red-50 text-red-700 p-3 text-sm mb-4">
+          <strong>Failed to load alerts:</strong> {error}
+          <br />
+          <span className="text-xs">Make sure the Rails backend is running on port 3001.</span>
         </div>
       )}
 
       {!loading && !error && (
-        <div className="card divide-y divide-slate-100">
-          {alerts.map((alert) => (
-            <Link
-              key={alert.alert_id}
-              href={`/alerts/${alert.alert_id}`}
-              className="flex items-center gap-4 p-5 hover:bg-slate-50 transition-colors group"
-            >
-              {/* Severity Badge */}
-              <div className={`badge ${severityColor(severityUpper(alert.severity))} shrink-0`}>
-                {severityUpper(alert.severity)}
-              </div>
-
-              {/* Alert Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-semibold text-slate-900 truncate">{alert.customer.name}</span>
-                  <span className="text-xs text-slate-400 shrink-0">{alert.alert_id}</span>
-                </div>
-                <p className="text-sm text-slate-500 mt-0.5">{alert.alert_type}</p>
-                {alert.description && (
-                  <p className="text-xs text-slate-400 mt-0.5 truncate">{alert.description}</p>
-                )}
-              </div>
-
-              {/* Transaction Amount */}
-              <div className="hidden sm:flex gap-6 text-sm shrink-0">
-                <div className="text-right">
-                  <div className="flex items-center gap-1 text-slate-700 justify-end">
-                    <DollarSign className="w-3.5 h-3.5" />
-                    <span className="font-medium">{formatCurrency(alert.total_amount)}</span>
-                  </div>
-                  <p className="text-xs text-slate-400">{alert.transaction_count} txns</p>
-                </div>
-              </div>
-
-              {/* Risk Score */}
-              <div className="hidden lg:block text-right text-sm shrink-0 w-24">
-                <p className={`font-semibold ${alert.customer.risk_score >= 80 ? "text-red-600" : alert.customer.risk_score >= 60 ? "text-orange-600" : "text-green-600"}`}>
-                  Risk {alert.customer.risk_score}
-                </p>
-                <p className="text-xs text-slate-400">{new Date(alert.created_at).toLocaleDateString()}</p>
-              </div>
-
-              <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-colors shrink-0" />
-            </Link>
-          ))}
-        </div>
+        <table className="w-full border-collapse border border-gray-300 text-sm">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="border border-gray-300 px-3 py-2 text-left">Alert ID</th>
+              <th className="border border-gray-300 px-3 py-2 text-left">Severity</th>
+              <th className="border border-gray-300 px-3 py-2 text-left">Customer</th>
+              <th className="border border-gray-300 px-3 py-2 text-left">Alert Type</th>
+              <th className="border border-gray-300 px-3 py-2 text-left">Amount</th>
+              <th className="border border-gray-300 px-3 py-2 text-left">Risk Score</th>
+              <th className="border border-gray-300 px-3 py-2 text-left">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {alerts.map((alert) => (
+              <tr key={alert.alert_id} className="hover:bg-gray-50">
+                <td className="border border-gray-300 px-3 py-2">
+                  <Link href={`/alerts/${alert.alert_id}`} className="text-blue-600 hover:underline font-mono text-xs">
+                    {alert.alert_id}
+                  </Link>
+                </td>
+                <td className="border border-gray-300 px-3 py-2">
+                  <span className={`badge ${severityColor(severityUpper(alert.severity))}`}>
+                    {severityUpper(alert.severity)}
+                  </span>
+                </td>
+                <td className="border border-gray-300 px-3 py-2 font-medium">{alert.customer.name}</td>
+                <td className="border border-gray-300 px-3 py-2 text-gray-600">{alert.alert_type}</td>
+                <td className="border border-gray-300 px-3 py-2">{formatCurrency(alert.total_amount)}</td>
+                <td className="border border-gray-300 px-3 py-2">{alert.customer.risk_score}</td>
+                <td className="border border-gray-300 px-3 py-2 text-gray-500">
+                  {new Date(alert.created_at).toLocaleDateString()}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );

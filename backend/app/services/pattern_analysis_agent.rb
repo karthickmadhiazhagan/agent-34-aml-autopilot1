@@ -25,7 +25,7 @@ class PatternAnalysisAgent < ClaudeAgentBase
   end
 
   def run(evidence)
-    return MockAgentResponses.for_pattern_analysis(evidence) if self.class.mock_mode? || self.class.smart_mode?
+    return MockAgentResponses.for_pattern_analysis(evidence) if self.class.mock_mode?
 
     call_ai(
       system_prompt: SYSTEM_PROMPT,
