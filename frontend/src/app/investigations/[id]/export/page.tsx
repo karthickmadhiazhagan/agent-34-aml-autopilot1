@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { fetchInvestigation, exportSar, formatCurrency } from "@/lib/api";
+import { fetchInvestigation, formatCurrency } from "@/lib/api";
 import type { Investigation } from "@/types";
 import { ArrowLeft, Download, CheckCircle } from "lucide-react";
 import Link from "next/link";
