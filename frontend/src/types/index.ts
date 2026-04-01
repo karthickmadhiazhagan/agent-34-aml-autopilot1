@@ -178,6 +178,7 @@ export interface SarOutput {
     customer_id: string;
     business_type: string;
     risk_rating: string;
+    account_open_date?: string;
   };
   activity_type: string;
   filing_recommendation: string;
