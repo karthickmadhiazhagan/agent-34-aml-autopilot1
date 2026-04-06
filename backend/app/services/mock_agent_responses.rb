@@ -21,13 +21,31 @@ module MockAgentResponses
 
     dates = txns.map { |t| t["date"] }.compact.sort
 
+    # Calculate expected_monthly_turnover from actual transaction inflow rather than
+    # account balance — balance is 0 for secondary/distribution accounts, making the
+    # balance/6 formula meaningless. Use total inbound spread across the date range instead.
+    months_covered = if dates.size >= 2
+      first_d = Date.parse(dates.first.to_s) rescue nil
+      last_d  = Date.parse(dates.last.to_s)  rescue nil
+      (first_d && last_d) ? [(last_d - first_d).to_i / 30.0, 1].max : 1
+    else
+      1
+    end
+    expected_turnover = if total_in > 0
+      (total_in / months_covered).round(2)
+    elsif account["balance"].to_f > 0
+      (account["balance"].to_f / 6).round(2)
+    else
+      0
+    end
+
     {
       "customer_profile" => {
         "customer_id"               => customer["id"],
         "customer_name"             => customer["name"],
         "business_type"             => customer["occupation"] || "Individual",
         "account_open_date"         => account["opened_at"] || "N/A",
-        "expected_monthly_turnover" => (account["balance"].to_f / 6).round(2),
+        "expected_monthly_turnover" => expected_turnover,
         "risk_rating"               => customer["risk_label"] || "High"
       },
       "kyc_summary" => {

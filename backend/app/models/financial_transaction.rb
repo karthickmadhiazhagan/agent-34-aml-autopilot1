@@ -8,7 +8,7 @@ class FinancialTransaction < ApplicationRecord
       type:                txn_type,
       amount:              amount.to_f,
       currency:            currency,
-      from_account:        from_account&.account_number || counterparty_name,
+      from_account:        from_account&.account_number,
       to_account:          to_account&.account_number,
       description:         description,
       date:                transacted_at&.strftime("%Y-%m-%d %H:%M"),

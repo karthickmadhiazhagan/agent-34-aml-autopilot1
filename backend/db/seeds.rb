@@ -117,14 +117,16 @@ acc_emmanuel = Account.create!(customer: emmanuel,  account_number: "CHK-EO-001"
 acc_bright   = Account.create!(customer: bright,    account_number: "BIZ-BFL-001", account_type: "business",   balance: 28_000.00, currency: "USD", status: "active",  branch: "New York Midtown", opened_at: "2021-06-01")
 acc_sarah    = Account.create!(customer: sarah,     account_number: "SAV-SC-001",  account_type: "savings",    balance: 220_000.00, currency: "USD", status: "dormant", branch: "Brooklyn",        opened_at: "2008-03-22")
 acc_golden   = Account.create!(customer: golden,    account_number: "BIZ-GDR-001", account_type: "business",   balance: 185_000.00, currency: "USD", status: "active", branch: "San Francisco",    opened_at: "2016-09-05")
-acc_marcus   = Account.create!(customer: marcus,    account_number: "CHK-MW-001",  account_type: "checking",   balance: 4_200.00,  currency: "USD", status: "active",  branch: "Atlanta",          opened_at: "2018-11-30")
+acc_marcus   = Account.create!(customer: marcus,    account_number: "CHK-MW-001",  account_type: "checking",   balance: 1_850.00,  currency: "USD", status: "active",  branch: "Atlanta",          opened_at: "2018-11-30")
 acc_apex     = Account.create!(customer: apex,      account_number: "BIZ-ACP-001", account_type: "business",   balance: 750_000.00, currency: "USD", status: "active", branch: "New York Wall St", opened_at: "2017-02-14")
 acc_dimitri  = Account.create!(customer: dimitri,   account_number: "CHK-DV-001",  account_type: "checking",   balance: 95_000.00, currency: "USD", status: "active",  branch: "New York",         opened_at: "2022-07-20")
 acc_silk     = Account.create!(customer: silk,      account_number: "BIZ-SR-001",  account_type: "business",   balance: 340_000.00, currency: "USD", status: "active", branch: "Los Angeles",      opened_at: "2020-03-18")
 acc_hassan   = Account.create!(customer: hassan,    account_number: "CHK-HA-001",  account_type: "checking",   balance: 55_000.00, currency: "USD", status: "active",  branch: "Beverly Hills",    opened_at: "2021-10-01")
-acc_diego    = Account.create!(customer: diego,     account_number: "CHK-DR-001",  account_type: "checking",   balance: 800.00,   currency: "USD", status: "active",   branch: "Miami",            opened_at: "2023-01-10")
-acc_ana      = Account.create!(customer: ana,       account_number: "CHK-AT-001",  account_type: "checking",   balance: 650.00,   currency: "USD", status: "active",   branch: "Miami",            opened_at: "2023-03-05")
-acc_luis     = Account.create!(customer: luis,      account_number: "CHK-LV-001",  account_type: "checking",   balance: 720.00,   currency: "USD", status: "active",   branch: "Miami",            opened_at: "2023-06-15")
+# Balances reflect funds remaining AFTER smurfing transfers.
+# Each sent ~$18K to Victor, suggesting they received ~$20K in unexplained cash (suspicious for their income level).
+acc_diego    = Account.create!(customer: diego,     account_number: "CHK-DR-001",  account_type: "checking",   balance: 2_450.00, currency: "USD", status: "active",   branch: "Miami",            opened_at: "2023-01-10")
+acc_ana      = Account.create!(customer: ana,       account_number: "CHK-AT-001",  account_type: "checking",   balance: 1_980.00, currency: "USD", status: "active",   branch: "Miami",            opened_at: "2023-03-05")
+acc_luis     = Account.create!(customer: luis,      account_number: "CHK-LV-001",  account_type: "checking",   balance: 2_210.00, currency: "USD", status: "active",   branch: "Miami",            opened_at: "2023-06-15")
 acc_victor   = Account.create!(customer: victor,    account_number: "CHK-VS-001",  account_type: "checking",   balance: 82_000.00, currency: "USD", status: "active",  branch: "Miami",            opened_at: "2021-05-20")
 acc_jennifer = Account.create!(customer: jennifer,  account_number: "CHK-JP-001",  account_type: "checking",   balance: 18_500.00, currency: "USD", status: "active",  branch: "San Jose",         opened_at: "2020-08-12")
 
@@ -233,8 +235,8 @@ funnel_senders.each do |ref, date, amt, desc|
 end
 
 txns[:mw_w]  = FinancialTransaction.create!(
-  txn_ref: "TXN-MW-013", from_account: acc_marcus, amount: 26_500.00, currency: "USD",
-  txn_type: "cash_withdrawal", description: "ATM / branch cash withdrawal",
+  txn_ref: "TXN-MW-013", from_account: acc_marcus, amount: 24_500.00, currency: "USD",
+  txn_type: "cash_withdrawal", description: "ATM / branch cash withdrawal – full balance cleared",
   location: "Atlanta, GA", transacted_at: DateTime.parse("2024-11-13 09:00")
 )
 
@@ -286,20 +288,24 @@ end
 # SCENARIO 7: SMURFING (COORDINATED DEPOSITS) – Diego, Ana, Luis → Victor
 # Three low-income individuals make same-day deposits to Victor Salinas
 # ---------------------------------------------------------------------------
+# Smurf deposits arrive INTO Victor's account from external parties.
+# from_account is intentionally nil so these correctly show as INBOUND
+# on Victor's alert. The sender identity is captured via counterparty_name.
 smurf_txns = [
-  ["TXN-SM-001", acc_diego,  9_100.00, "2024-11-18 09:10", "Payment to VS"],
-  ["TXN-SM-002", acc_ana,    8_900.00, "2024-11-18 09:45", "Transfer to Victor"],
-  ["TXN-SM-003", acc_luis,   9_400.00, "2024-11-18 10:20", "Funds transfer"],
-  ["TXN-SM-004", acc_diego,  8_800.00, "2024-11-25 09:05", "Payment – Nov 2"],
-  ["TXN-SM-005", acc_ana,    9_200.00, "2024-11-25 10:15", "Transfer – personal"],
-  ["TXN-SM-006", acc_luis,   8_700.00, "2024-11-25 11:30", "Funds movement"],
+  ["TXN-SM-001", "Diego Ramirez (CUST_011)",  9_100.00, "2024-11-18 09:10", "Payment to VS"],
+  ["TXN-SM-002", "Ana Torres (CUST_012)",      8_900.00, "2024-11-18 09:45", "Transfer to Victor"],
+  ["TXN-SM-003", "Luis Vargas (CUST_013)",     9_400.00, "2024-11-18 10:20", "Funds transfer"],
+  ["TXN-SM-004", "Diego Ramirez (CUST_011)",   8_800.00, "2024-11-25 09:05", "Payment – Nov 2"],
+  ["TXN-SM-005", "Ana Torres (CUST_012)",       9_200.00, "2024-11-25 10:15", "Transfer – personal"],
+  ["TXN-SM-006", "Luis Vargas (CUST_013)",      8_700.00, "2024-11-25 11:30", "Funds movement"],
 ]
 
-smurf_txns.each do |ref, from_acc, amt, date, desc|
+smurf_txns.each do |ref, sender_name, amt, date, desc|
   txns[ref.to_sym] = FinancialTransaction.create!(
-    txn_ref: ref, from_account: from_acc, to_account: acc_victor,
+    txn_ref: ref, to_account: acc_victor,
     amount: amt, currency: "USD", txn_type: "ach_transfer",
     description: desc, location: "Miami, FL",
+    counterparty_name: sender_name,
     transacted_at: DateTime.parse(date)
   )
 end
@@ -466,15 +472,15 @@ Alert.create!(
   status:        "open",
   customer:      marcus,
   account:       acc_marcus,
-  description:   "Marcus Williams received 12 ACH transfers totaling $24,500 from unrelated parties over 12 days, then withdrew $26,500 in cash the following day. Income level and account history are inconsistent with this volume. Account appears to be used as a collection point.",
+  description:   "Marcus Williams received 12 ACH transfers totaling $24,500 from unrelated parties over 12 days, then withdrew $24,500 in cash the following day – clearing the full collected balance. Income level and account history are inconsistent with this volume. Account appears to be used as a collection point.",
   rule_triggered: "Rule AML-118: Funnel Account – Multiple Inbound / Single Outbound",
   txn_refs:      %w[TXN-MW-001 TXN-MW-002 TXN-MW-003 TXN-MW-004 TXN-MW-005 TXN-MW-006 TXN-MW-007 TXN-MW-008 TXN-MW-009 TXN-MW-010 TXN-MW-011 TXN-MW-012 TXN-MW-013],
   metadata: {
     inbound_total:   24_500.00,
-    cash_withdrawal: 26_500.00,
+    cash_withdrawal: 24_500.00,
     sender_count:    12,
     occupation_income_mismatch: true,
-    risk_indicators: ["Multiple unrelated senders", "Large cash withdrawal", "Income inconsistent with activity volume", "All deposits within 12-day window"]
+    risk_indicators: ["Multiple unrelated senders", "Cash withdrawal matches exact inbound total", "Income inconsistent with activity volume", "All deposits within 12-day window", "Full balance cleared day after collection complete"]
   }
 )
 
