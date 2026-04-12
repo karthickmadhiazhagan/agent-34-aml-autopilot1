@@ -1,0 +1,13 @@
+:concurrency: 5          # number of Sidekiq worker threads
+
+:queues:
+  - [critical, 3]        # highest-priority queue (weight 3)
+  - [default, 2]
+  - [alert_detection, 1] # alert detection runs at lowest priority
+                         # so it never starves user-facing jobs
+
+:max_retries: 3
+
+# Uncomment to enable the Sidekiq Web UI at /sidekiq
+# Protect it with authentication in routes.rb (see Rails docs)
+# :web_concurrency: 2

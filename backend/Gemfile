@@ -15,6 +15,10 @@ gem "matrix"          # required by prawn on Ruby 3.1+
 gem "prawn"
 gem "prawn-table"
 
+# Background jobs
+gem "sidekiq", "~> 7.0"          # job queue backed by Redis
+gem "sidekiq-cron", "~> 1.12"    # cron-style recurring job scheduler
+
 group :development, :test do
   gem "debug"
   gem "rspec-rails"

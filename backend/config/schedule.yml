@@ -1,0 +1,25 @@
+# Sidekiq-Cron schedule for AML Autopilot
+# Docs: https://github.com/sidekiq-cron/sidekiq-cron
+#
+# All cron expressions are in UTC.
+# Adjust timing to match your compliance team's working hours.
+
+alert_detection_hourly:
+  cron: "0 * * * *"          # every hour on the hour
+  class: "AlertDetectionJob"
+  queue: alert_detection
+  description: >
+    Incremental AML alert detection — scans only accounts with new
+    transaction activity since the last run. No AI calls, pure SQL rules.
+  args: []                    # uses defaults: all accounts, incremental mode
+
+# Uncomment to add a nightly full scan as a safety net
+# alert_detection_nightly_full:
+#   cron: "0 2 * * *"        # 02:00 UTC every night
+#   class: "AlertDetectionJob"
+#   queue: alert_detection
+#   description: >
+#     Full nightly scan of all accounts regardless of last_detected_at,
+#     as a catch-all to ensure nothing is missed.
+#   args:
+#     - force_full_scan: true
